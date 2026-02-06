@@ -6,6 +6,16 @@ use pyo3::prelude::*;
 static WEEKDAYS: &[u8; 7] = &[64, 32, 16, 8, 4, 2, 1];
 
 #[pyclass]
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum BusdayConvention {
+    Following,
+    Preceding,
+    ModifiedFollowing,
+    ModifiedPreceding,
+    None,
+}
+
+#[pyclass]
 #[derive(FromPyObject)]
 pub struct BusinessCalendar {
     holidays: HashSet<NaiveDate>,
@@ -37,6 +47,95 @@ impl BusinessCalendar {
     /// Check whether ``dt`` is a valid busday.
     pub fn is_busday(&self, dt: NaiveDate) -> bool {
         self.is_weekday(dt) & !self.is_holiday(dt)
+    }
+
+    /// Get the next successive busday
+    pub fn succ(&self, dt: NaiveDate) -> NaiveDate {
+        let mut tmp = dt.succ_opt().unwrap();
+        while !self.is_busday(tmp) {
+            tmp = tmp.succ_opt().unwrap();
+        }
+        tmp
+    }
+
+    /// Get the preceding successive business day
+    pub fn pred(&self, dt: NaiveDate) -> NaiveDate {
+        let mut tmp = dt.pred_opt().unwrap();
+        while !self.is_busday(tmp) {
+            tmp = tmp.pred_opt().unwrap();
+        }
+        tmp
+    }
+
+    /// Add ``days`` business days to ``dt``.
+    pub fn add_busdays(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+        let mut tmp = self.adjust(dt, conv);
+        let mut cntr = 0u32;
+        while cntr < days {
+            tmp = self.succ(tmp);
+            cntr += 1;
+        }
+        tmp
+    }
+
+    /// Subtract ``days`` business days to ``dt``.
+    pub fn sub_busdays(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+        let mut tmp = self.adjust(dt, conv);
+        let mut cntr = 0u32;
+        while cntr < days {
+            tmp = self.pred(tmp);
+            cntr += 1;
+        }
+        tmp
+    }
+
+    /// Adjust ``dt`` according to business day convention ``conv``.
+    pub fn adjust(&self, dt: NaiveDate, conv: BusdayConvention) -> NaiveDate {
+        match conv {
+            BusdayConvention::Following => self.foll(dt),
+            BusdayConvention::Preceding => self.prec(dt),
+            BusdayConvention::ModifiedFollowing => self.modfoll(dt),
+            BusdayConvention::ModifiedPreceding => self.modprec(dt),
+            BusdayConvention::None => dt,
+        }
+    }
+
+    // * -------------------------------------------------------------------------------
+    // * PRIVATE METHODS
+    // * -------------------------------------------------------------------------------
+
+    fn foll(&self, dt: NaiveDate) -> NaiveDate {
+        if self.is_busday(dt) {
+            dt
+        } else {
+            self.succ(dt)
+        }
+    }
+
+    fn prec(&self, dt: NaiveDate) -> NaiveDate {
+        if self.is_busday(dt) {
+            dt
+        } else {
+            self.pred(dt)
+        }
+    }
+
+    fn modfoll(&self, dt: NaiveDate) -> NaiveDate {
+        let tmp = self.foll(dt);
+        if tmp.month() != dt.month() {
+            self.prec(dt)
+        } else {
+            tmp
+        }
+    }
+
+    fn modprec(&self, dt: NaiveDate) -> NaiveDate {
+        let tmp = self.prec(dt);
+        if tmp.month() != dt.month() {
+            self.succ(dt)
+        } else {
+            tmp
+        }
     }
 }
 
@@ -77,5 +176,128 @@ impl BusinessCalendar {
     #[pyo3(name = "is_weekday")]
     fn is_weekday_py(&self, dt: NaiveDate) -> bool {
         self.is_busday(dt)
+    }
+
+    #[pyo3(name = "succ")]
+    fn succ_py(&self, dt: NaiveDate) -> NaiveDate {
+        self.succ(dt)
+    }
+
+    #[pyo3(name = "pred")]
+    fn pred_py(&self, dt: NaiveDate) -> NaiveDate {
+        self.pred(dt)
+    }
+
+    #[pyo3(name = "add_busdays", signature = (dt, days, conv = BusdayConvention::Preceding))]
+    fn add_busdays_py(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+        self.add_busdays(dt, days, conv)
+    }
+
+    #[pyo3(name = "sub_busdays", signature = (dt, days, conv = BusdayConvention::Following))]
+    fn sub_busdays_py(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+        self.sub_busdays(dt, days, conv)
+    }
+
+    #[pyo3(name = "adjust")]
+    fn adjust_py(&self, dt: NaiveDate, conv: BusdayConvention) -> NaiveDate {
+        self.adjust(dt, conv)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+
+    use super::{BusdayConvention, BusinessCalendar};
+
+    static HOLIDAYS: &[NaiveDate] = &[
+        NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 1, 19).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 2, 16).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 5, 25).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 6, 19).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 7, 3).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 9, 7).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 10, 12).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 11, 11).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 11, 26).unwrap(),
+        NaiveDate::from_ymd_opt(2026, 12, 25).unwrap(),
+    ];
+
+    fn get_calendar() -> BusinessCalendar {
+        BusinessCalendar::new(Some(HOLIDAYS.iter().cloned()), "1111100")
+    }
+
+    #[test]
+    fn test_is_holiday() {
+        let cal = get_calendar();
+        let rslt = HOLIDAYS
+            .iter()
+            .map(|dt| cal.is_holiday(*dt))
+            .reduce(|acc, e| acc & e)
+            .unwrap();
+        assert!(rslt)
+    }
+
+    #[test]
+    fn test_succ() {
+        let cal = get_calendar();
+        // * next cal day is busday
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 5).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 6).unwrap();
+            assert_eq!(cal.succ(dt), rslt);
+        }
+        // * next cal day is Saturday
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 6).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 9).unwrap();
+            assert_eq!(cal.succ(dt), rslt);
+        }
+        // * next cal day is holiday
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 11, 10).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 11, 12).unwrap();
+            assert_eq!(cal.succ(dt), rslt);
+        }
+        // * next cal day is saturday, Monday a holiday
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 13).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 17).unwrap();
+            assert_eq!(cal.succ(dt), rslt);
+        }
+    }
+
+    #[test]
+    fn test_adjust() {
+        let cal = get_calendar();
+        // * test foll
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 7).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 9).unwrap();
+            let conv = BusdayConvention::Following;
+            assert_eq!(cal.adjust(dt, conv), rslt)
+        }
+        // * test preceding
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 7).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 6).unwrap();
+            let conv = BusdayConvention::Preceding;
+            assert_eq!(cal.adjust(dt, conv), rslt)
+        }
+        // * test modfoll
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 1, 31).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 1, 30).unwrap();
+            let conv = BusdayConvention::ModifiedFollowing;
+            assert_eq!(cal.adjust(dt, conv), rslt)
+        }
+        // * test modpreceding
+        {
+            let dt = NaiveDate::from_ymd_opt(2026, 2, 1).unwrap();
+            let rslt = NaiveDate::from_ymd_opt(2026, 2, 2).unwrap();
+            let conv = BusdayConvention::ModifiedPreceding;
+            assert_eq!(cal.adjust(dt, conv), rslt)
+        }
     }
 }
