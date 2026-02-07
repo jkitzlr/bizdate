@@ -22,6 +22,7 @@ tests = [
 module-name = "datecalc.rs"
 python-source = "python"
 bindings = "pyo3"
+features = ["python"]
 
 [dependency-groups]
 dev = [

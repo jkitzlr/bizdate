@@ -1,12 +1,14 @@
-use std::{collections::HashSet, str::FromStr};
+use std::collections::HashSet;
 
 use chrono::{Datelike, NaiveDate};
-use pyo3::prelude::*;
+
+#[cfg(feature = "python")]
+use {pyo3::prelude::*, std::str::FromStr};
 
 static WEEKDAYS: &[u8; 7] = &[64, 32, 16, 8, 4, 2, 1];
 
-#[pyclass]
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "python", pyclass)]
 pub enum BusdayConvention {
     Following,
     Preceding,
@@ -15,8 +17,7 @@ pub enum BusdayConvention {
     None,
 }
 
-#[pyclass]
-#[derive(FromPyObject)]
+#[cfg_attr(feature = "python", pyclass, derive(FromPyObject))]
 pub struct BusinessCalendar {
     holidays: HashSet<NaiveDate>,
     weekmask: u8,
@@ -159,6 +160,7 @@ impl BusinessCalendar {
 
 // TODO: need to have code to return weekmask in different forms
 #[pymethods]
+#[cfg(feature = "python")]
 impl BusinessCalendar {
     #[pyo3(signature = (holidays = None, weekmask = String::from_str("1111100").unwrap()))]
     #[new]
