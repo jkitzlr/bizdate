@@ -1,9 +1,12 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use chrono::{Datelike, NaiveDate};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[cfg(feature = "python")]
-use {pyo3::prelude::*, std::str::FromStr};
+use {pyo3::prelude::*, pyo3::types::PyType, std::fs::File, std::path::PathBuf, std::str::FromStr};
 
 static WEEKDAYS: &[u8; 7] = &[64, 32, 16, 8, 4, 2, 1];
 
@@ -18,8 +21,9 @@ pub enum BusdayConvention {
 }
 
 #[cfg_attr(feature = "python", pyclass, derive(FromPyObject))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct BusinessCalendar {
-    holidays: HashSet<NaiveDate>,
+    holidays: BTreeSet<NaiveDate>,
     weekmask: u8,
 }
 
@@ -27,8 +31,8 @@ impl BusinessCalendar {
     // TODO: this should return an Option or Result
     pub fn new(holidays_: Option<impl IntoIterator<Item = NaiveDate>>, weekmask_: &str) -> Self {
         let holidays = match holidays_ {
-            None => HashSet::new(),
-            Some(iter) => iter.into_iter().collect::<HashSet<NaiveDate>>(),
+            None => BTreeSet::new(),
+            Some(iter) => iter.into_iter().collect::<BTreeSet<NaiveDate>>(),
         };
         let weekmask = u8::from_str_radix(weekmask_, 2).unwrap();
         Self { holidays, weekmask }
@@ -172,6 +176,17 @@ impl BusinessCalendar {
         Ok(rslt)
     }
 
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
+        let file = File::open(path)?;
+        Ok(serde_json::from_reader(file).unwrap())
+    }
+
+    #[classmethod]
+    fn from_json_str(_cls: &Bound<'_, PyType>, text: String) -> PyResult<Self> {
+        Ok(serde_json::from_str(&text).unwrap())
+    }
+
     #[getter]
     fn holidays(&self) -> PyResult<Vec<NaiveDate>> {
         Ok(self.holidays.clone().into_iter().collect())
@@ -236,6 +251,10 @@ impl BusinessCalendar {
     #[pyo3(name = "eom_bus")]
     fn eom_bus_py(&self, dt: NaiveDate) -> NaiveDate {
         self.eom_bus(dt)
+    }
+
+    fn to_json_str(&self) -> PyResult<String> {
+        Ok(serde_json::to_string(&self).unwrap())
     }
 }
 
@@ -383,4 +402,13 @@ mod tests {
             NaiveDate::from_ymd_opt(2026, 2, 27).unwrap()
         );
     }
+
+    // #[test]
+    // fn test_deser() {
+    //     let json = r#"
+    //     {
+    //         "
+    //     }
+    //     "#;
+    // }
 }
