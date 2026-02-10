@@ -2,6 +2,8 @@
 use pyo3::prelude::*;
 
 pub mod buscal;
+pub mod errors;
+
 pub use buscal::{BusdayConvention, BusinessCalendar};
 
 /// A Python module implemented in Rust.

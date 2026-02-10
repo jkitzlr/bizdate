@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "python")]
 use {
-    pyo3::exceptions::*, pyo3::prelude::*, pyo3::types::PyType, serde_json, std::fs::File,
-    std::path::PathBuf, std::str::FromStr,
+    crate::errors::py_err_from_serde, pyo3::prelude::*, pyo3::types::PyType,
+    std::fs::File, std::path::PathBuf, std::str::FromStr,
 };
 
 static WEEKDAYS: &[u8; 7] = &[64, 32, 16, 8, 4, 2, 1];
@@ -32,7 +32,10 @@ pub struct BusinessCalendar {
 
 impl BusinessCalendar {
     // TODO: this should return an Option or Result
-    pub fn new(holidays_: Option<impl IntoIterator<Item = NaiveDate>>, weekmask_: &str) -> Self {
+    pub fn new(
+        holidays_: Option<impl IntoIterator<Item = NaiveDate>>,
+        weekmask_: &str,
+    ) -> Self {
         let holidays = match holidays_ {
             None => BTreeSet::new(),
             Some(iter) => iter.into_iter().collect::<BTreeSet<NaiveDate>>(),
@@ -81,7 +84,12 @@ impl BusinessCalendar {
     }
 
     /// Add ``days`` business days to ``dt``.
-    pub fn add_busdays(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+    pub fn add_busdays(
+        &self,
+        dt: NaiveDate,
+        days: u32,
+        conv: BusdayConvention,
+    ) -> NaiveDate {
         let mut tmp = self.adjust(dt, conv);
         let mut cntr = 0u32;
         while cntr < days {
@@ -92,7 +100,12 @@ impl BusinessCalendar {
     }
 
     /// Subtract ``days`` business days to ``dt``.
-    pub fn sub_busdays(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+    pub fn sub_busdays(
+        &self,
+        dt: NaiveDate,
+        days: u32,
+        conv: BusdayConvention,
+    ) -> NaiveDate {
         let mut tmp = self.adjust(dt, conv);
         let mut cntr = 0u32;
         while cntr < days {
@@ -165,21 +178,6 @@ impl BusinessCalendar {
     }
 }
 
-#[cfg(feature = "python")]
-fn py_err_from_serde(err: serde_json::Error) -> PyErr {
-    if err.is_data() {
-        PyValueError::new_err("Bad/malformed data")
-    } else if err.is_eof() {
-        PyEOFError::new_err("Unexpectedly reached end of JSON data.")
-    } else if err.is_io() {
-        PyIOError::new_err("An I/O error occurred parsing JSON file.")
-    } else if err.is_syntax() {
-        PyValueError::new_err("Bad JSON syntax.")
-    } else {
-        PyException::new_err("An unspecified error occurred")
-    }
-}
-
 // TODO: need to have code to return weekmask in different forms
 #[pymethods]
 #[cfg(feature = "python")]
@@ -246,13 +244,29 @@ impl BusinessCalendar {
         self.pred(dt)
     }
 
-    #[pyo3(name = "add_busdays", signature = (dt, days, conv = BusdayConvention::Preceding))]
-    fn add_busdays_py(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+    #[pyo3(
+        name = "add_busdays",
+        signature = (dt, days, conv = BusdayConvention::Preceding)
+    )]
+    fn add_busdays_py(
+        &self,
+        dt: NaiveDate,
+        days: u32,
+        conv: BusdayConvention,
+    ) -> NaiveDate {
         self.add_busdays(dt, days, conv)
     }
 
-    #[pyo3(name = "sub_busdays", signature = (dt, days, conv = BusdayConvention::Following))]
-    fn sub_busdays_py(&self, dt: NaiveDate, days: u32, conv: BusdayConvention) -> NaiveDate {
+    #[pyo3(
+        name = "sub_busdays",
+        signature = (dt, days, conv = BusdayConvention::Following)
+    )]
+    fn sub_busdays_py(
+        &self,
+        dt: NaiveDate,
+        days: u32,
+        conv: BusdayConvention,
+    ) -> NaiveDate {
         self.sub_busdays(dt, days, conv)
     }
 
