@@ -6,10 +6,7 @@ use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "python")]
-use {
-    crate::errors::py_err_from_serde, pyo3::prelude::*, pyo3::types::PyType,
-    std::fs::File, std::path::PathBuf, std::str::FromStr,
-};
+use pyo3::prelude::*;
 
 static WEEKDAYS: &[u8; 7] = &[64, 32, 16, 8, 4, 2, 1];
 
@@ -26,8 +23,8 @@ pub enum BusdayConvention {
 #[cfg_attr(feature = "python", pyclass, derive(FromPyObject))]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct BusinessCalendar {
-    holidays: BTreeSet<NaiveDate>,
-    weekmask: u8,
+    pub(crate) holidays: BTreeSet<NaiveDate>,
+    pub(crate) weekmask: u8,
 }
 
 impl BusinessCalendar {
@@ -175,118 +172,6 @@ impl BusinessCalendar {
         } else {
             tmp
         }
-    }
-}
-
-// TODO: need to have code to return weekmask in different forms
-#[pymethods]
-#[cfg(feature = "python")]
-impl BusinessCalendar {
-    #[pyo3(signature = (holidays = None, weekmask = String::from_str("1111100").unwrap()))]
-    #[new]
-    fn new_py(holidays: Option<Vec<NaiveDate>>, weekmask: String) -> PyResult<Self> {
-        let rslt = match holidays {
-            None => Self::new(None::<Vec<NaiveDate>>, &weekmask),
-            Some(h) => Self::new(Some(h.into_iter()), &weekmask),
-        };
-        Ok(rslt)
-    }
-
-    #[classmethod]
-    fn from_json(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
-        let file = File::open(path)?;
-        serde_json::from_reader(file).map_err(py_err_from_serde)
-    }
-
-    #[classmethod]
-    fn from_json_str(_cls: &Bound<'_, PyType>, text: String) -> PyResult<Self> {
-        serde_json::from_str(&text).map_err(py_err_from_serde)
-    }
-
-    #[getter]
-    fn holidays(&self) -> PyResult<Vec<NaiveDate>> {
-        Ok(self.holidays.clone().into_iter().collect())
-    }
-
-    #[getter]
-    fn weekmask(&self) -> PyResult<String> {
-        let bstr = format!("{:b}", self.weekmask);
-        Ok(bstr)
-    }
-
-    #[pyo3(name = "is_busday")]
-    fn is_busday_py(&self, dt: NaiveDate) -> bool {
-        self.is_busday(dt)
-    }
-
-    #[pyo3(name = "is_holiday")]
-    fn is_holiday_py(&self, dt: NaiveDate) -> bool {
-        self.is_holiday(dt)
-    }
-
-    #[pyo3(name = "is_weekday")]
-    fn is_weekday_py(&self, dt: NaiveDate) -> bool {
-        self.is_weekday(dt)
-    }
-
-    #[pyo3(name = "is_weekend")]
-    fn is_weekend_py(&self, dt: NaiveDate) -> bool {
-        self.is_weekend(dt)
-    }
-
-    #[pyo3(name = "succ")]
-    fn succ_py(&self, dt: NaiveDate) -> NaiveDate {
-        self.succ(dt)
-    }
-
-    #[pyo3(name = "pred")]
-    fn pred_py(&self, dt: NaiveDate) -> NaiveDate {
-        self.pred(dt)
-    }
-
-    #[pyo3(
-        name = "add_busdays",
-        signature = (dt, days, conv = BusdayConvention::Preceding)
-    )]
-    fn add_busdays_py(
-        &self,
-        dt: NaiveDate,
-        days: u32,
-        conv: BusdayConvention,
-    ) -> NaiveDate {
-        self.add_busdays(dt, days, conv)
-    }
-
-    #[pyo3(
-        name = "sub_busdays",
-        signature = (dt, days, conv = BusdayConvention::Following)
-    )]
-    fn sub_busdays_py(
-        &self,
-        dt: NaiveDate,
-        days: u32,
-        conv: BusdayConvention,
-    ) -> NaiveDate {
-        self.sub_busdays(dt, days, conv)
-    }
-
-    #[pyo3(name = "adjust")]
-    fn adjust_py(&self, dt: NaiveDate, conv: BusdayConvention) -> NaiveDate {
-        self.adjust(dt, conv)
-    }
-
-    #[pyo3(name = "bom_bus")]
-    fn bom_bus_py(&self, dt: NaiveDate) -> NaiveDate {
-        self.bom_bus(dt)
-    }
-
-    #[pyo3(name = "eom_bus")]
-    fn eom_bus_py(&self, dt: NaiveDate) -> NaiveDate {
-        self.eom_bus(dt)
-    }
-
-    fn to_json_str(&self) -> PyResult<String> {
-        serde_json::to_string(&self).map_err(py_err_from_serde)
     }
 }
 

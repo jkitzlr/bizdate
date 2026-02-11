@@ -1,8 +1,12 @@
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+#[cfg(feature = "python")]
+mod py;
+#[cfg(feature = "serde")]
+mod serde;
+
 pub mod buscal;
-pub mod errors;
 
 pub use buscal::{BusdayConvention, BusinessCalendar};
 

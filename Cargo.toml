@@ -18,4 +18,4 @@ crate-type = ["lib", "cdylib"]
 chrono = "0.4.43"
 pyo3 = {version = "0.27.0", features = ["hashbrown", "chrono"], optional = true}
 serde = { version = "1.0.228", optional = true }
-serde_json = { version = "1.0.149", optional = true }
+serde_json = { version = "1.0.149", features = ["std"], optional = true }
