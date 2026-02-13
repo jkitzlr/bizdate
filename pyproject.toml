@@ -4,12 +4,22 @@ build-backend = "maturin"
 
 [project]
 name = "bizdate"
+authors = [
+    {name = "Joshua Kitzler"},
+]
+description = "Business calendar and business date logic for Python, written in Rust."
+readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Office/Business :: Financial",
+    "License :: OSI Approved :: Apache Software License",
 ]
+license-files = ["LICENSE"]
+
 
 dynamic = ["version"]
 
