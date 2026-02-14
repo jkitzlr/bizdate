@@ -10,7 +10,7 @@ class BusdayConvention(Enum):
     - Modified Following (next good business day unless is in a new month--then last)
     - Modified Preceding (last good business day unless is in a diff month--then next)
     - None (don't adjust)
-    """
+    """  # noqa: D205, D415
 
     Following: Any
     Preceding: Any
@@ -21,7 +21,9 @@ class BusinessCalendar:
     """Business calendar. TBD."""
 
     def __init__(
-        self: Self, holidays: list[date] | None = None, weekmask: str = "1111100"
+        self: Self,
+        holidays: list[date] | None = None,
+        weekmask: str = "1111100",
     ) -> Self:
         """Initialize new BusinessCalendar instance.
 
@@ -134,8 +136,7 @@ class BusinessCalendar:
         """
 
     def sub_busdays(self: Self, dt: date, days: int, conv: BusdayConvention) -> date:
-        """Subtract ``days`` business days from ``dt`` after adjusting ``dt`` using
-        ``conv``.
+        """Subtract ``days`` business days from ``dt``, adjusting ``dt`` using ``conv``.
 
         Args:
             dt: The input date.

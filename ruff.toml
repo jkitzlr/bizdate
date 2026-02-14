@@ -4,5 +4,16 @@ target-version = "py311"
 line-ending = "auto"
 quote-style = "double"
 
+[lint]
+select = ["ALL"]
+
 [lint.isort]
 known-first-party = ["bizdate"]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+"noxfile.py" = ["D"]
+"python/tests/**/*.py" = ["ARG", "D", "FBT", "PLR", "PT", "S101"]
+"python/**/*.pyi" = ["PYI021"]

@@ -47,3 +47,9 @@ dev = [
     "ruff>=0.15.0",
     "ty>=0.0.15",
 ]
+doc = [
+    "zensical>=0.0.23",
+]
+docs = [
+    "mkdocstrings-python>=2.0.2",
+]

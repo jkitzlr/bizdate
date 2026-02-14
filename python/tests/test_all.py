@@ -95,7 +95,10 @@ def test_succ(dt: date, rslt: date, calendar: BusinessCalendar) -> None:
     ],
 )
 def test_adjust(
-    dt: date, conv: BusdayConvention, rslt: date, calendar: BusinessCalendar
+    dt: date,
+    conv: BusdayConvention,
+    rslt: date,
+    calendar: BusinessCalendar,
 ) -> None: ...
 
 

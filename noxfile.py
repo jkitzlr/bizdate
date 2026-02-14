@@ -16,6 +16,8 @@ def test(session: Session) -> None:
         "uv",
         "sync",
         "--frozen",
+        "--no-group",
+        "docs",
     )
     # * run the tests
     session.run(
